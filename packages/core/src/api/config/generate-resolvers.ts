@@ -181,11 +181,15 @@ function generateCustomFieldRelationResolvers(
                 args: any,
                 context: any,
             ) => {
-                if (source[fieldDef.name] != null) {
-                    return source[fieldDef.name];
-                }
                 const ctx: RequestContext = context.req[REQUEST_CONTEXT_KEY];
                 const entityId = source[ENTITY_ID_KEY];
+
+                if (source[fieldDef.name] != null) {
+                    return customFieldRelationResolverService.ensureTranslated(
+                        { ctx, fieldDef, entityName, entityId },
+                        source[fieldDef.name],
+                    );
+                }
                 return customFieldRelationResolverService.resolveRelation({
                     ctx,
                     fieldDef,

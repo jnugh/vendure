@@ -72,8 +72,51 @@ export class CustomFieldRelationResolverService {
         return translated;
     }
 
+    public ensureTranslated(
+        config: ResolveRelationConfig,
+        existingEntities: VendureEntity | VendureEntity[],
+    ): VendureEntity | VendureEntity[] | Promise<VendureEntity | VendureEntity[]> {
+        if (!Array.isArray(existingEntities)) {
+            return this.ensureTranslatedSingle(config, existingEntities);
+        }
+
+        if (existingEntities.some(entity => this.isTranslationsMissing(entity))) {
+            return this.resolveRelation(config) as Promise<VendureEntity>;
+        }
+
+        return Promise.all(
+            existingEntities.map(entity =>
+                this.isTranslatable(entity) ? this.translator.translate(entity, config.ctx) : entity,
+            ),
+        );
+    }
+
+    private ensureTranslatedSingle(
+        config: ResolveRelationConfig,
+        existingEntity: VendureEntity,
+    ): VendureEntity | Promise<VendureEntity> {
+        if (!this.isTranslatable(existingEntity)) {
+            return existingEntity;
+        }
+        if (existingEntity.translations) {
+            return this.translator.translate(existingEntity, config.ctx);
+        }
+
+        return this.resolveRelation(config) as Promise<VendureEntity>;
+    }
+
+    private isTranslationsMissing(input: unknown) {
+        return this.isTranslatable(input) && !input.translations;
+    }
+
     private isTranslatable(input: unknown): input is Translatable {
-        return typeof input === 'object' && input != null && input.hasOwnProperty('translations');
+        return (
+            typeof input === 'object' &&
+            input != null &&
+            this.connection.rawConnection
+                .getMetadata(Object.getPrototypeOf(input).constructor)
+                .relations.some(relation => relation.propertyName === 'translations')
+        );
     }
 
     private async applyVariantPrices(ctx: RequestContext, variant: ProductVariant): Promise<ProductVariant> {
